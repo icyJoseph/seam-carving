@@ -2,32 +2,42 @@ extern crate image;
 
 use std::convert::TryFrom;
 
-use image::{DynamicImage, GenericImageView};
+fn in_bounds(x: usize, y: usize, grid: &Vec<Vec<BarePixel>>) -> bool {
+    match grid.get(y) {
+        Some(row) => match row.get(x) {
+            Some(_) => return true,
+            None => return false,
+        },
+        _ => return false,
+    }
+}
 
-fn calc_pixel_energy(x: u32, y: u32, img: &DynamicImage) -> u64 {
-    let middle = img.get_pixel(x, y);
+fn calc_pixel_energy(x: u32, y: u32, img: &Vec<Vec<BarePixel>>) -> u64 {
+    let y_i = y as usize;
+    let x_i = x as usize;
 
-    let rgba_m = middle.0;
-    let r_m = rgba_m[0] as i64;
-    let g_m = rgba_m[1] as i64;
-    let b_m = rgba_m[2] as i64;
+    let middle = img[y_i][x_i];
 
-    let left = if x > 0 && img.in_bounds(x - 1, y) {
-        let rgba_l = img.get_pixel(x - 1, y).0;
-        let r_l = rgba_l[0] as i64;
-        let g_l = rgba_l[1] as i64;
-        let b_l = rgba_l[2] as i64;
+    let r_m = middle.r as i64;
+    let g_m = middle.g as i64;
+    let b_m = middle.b as i64;
+
+    let left = if x_i > 0 && in_bounds(x_i - 1, y_i, &img) {
+        let rgba_l = img[y_i][x_i - 1];
+        let r_l = rgba_l.r as i64;
+        let g_l = rgba_l.g as i64;
+        let b_l = rgba_l.b as i64;
 
         (r_l - r_m).pow(2) + (g_l - g_m).pow(2) + (b_l - b_m).pow(2)
     } else {
         0
     };
 
-    let right = if img.in_bounds(x + 1, y) {
-        let rgba_r = img.get_pixel(x + 1, y).0;
-        let r_r = rgba_r[0] as i64;
-        let g_r = rgba_r[1] as i64;
-        let b_r = rgba_r[2] as i64;
+    let right = if in_bounds(x_i + 1, y_i, &img) {
+        let rgba_r = img[y_i][x_i + 1];
+        let r_r = rgba_r.r as i64;
+        let g_r = rgba_r.g as i64;
+        let b_r = rgba_r.b as i64;
 
         (r_r - r_m).pow(2) + (g_r - g_m).pow(2) + (b_r - b_m).pow(2)
     } else {
@@ -35,6 +45,14 @@ fn calc_pixel_energy(x: u32, y: u32, img: &DynamicImage) -> u64 {
     };
 
     (left as f64 + right as f64).sqrt() as u64
+}
+
+#[derive(Copy, Clone)]
+struct BarePixel {
+    r: u8,
+    g: u8,
+    b: u8,
+    a: u8,
 }
 
 #[derive(Copy, Clone)]
@@ -123,22 +141,99 @@ fn find_low_energy_seam(energies: &Vec<Vec<u64>>, width: u32, height: u32) -> Ve
 }
 
 fn main() {
-    let img = match image::open("./src/landscape.png") {
+    let rgba_img = match image::open("landscape.png") {
         Err(why) => panic!("No image: {:?}", why),
-        Ok(i) => i,
+        Ok(data) => data.into_rgba8(),
     };
 
-    let (width, height) = img.dimensions();
-    let mut energies = vec![vec![625; width as usize]; height as usize];
+    let (orig_width, height) = rgba_img.dimensions();
 
-    for pixel in img.pixels() {
-        let (x, y, _) = pixel;
+    let mut energies = vec![vec![625; orig_width as usize]; height as usize];
 
-        energies[y as usize][x as usize] = calc_pixel_energy(x, y, &img);
+    let mut raw_output: Vec<Vec<BarePixel>> = vec![];
+
+    for row in rgba_img.rows() {
+        let mut row_buffer = vec![];
+        for cell in row {
+            let r = cell[0];
+            let g = cell[1];
+            let b = cell[2];
+            let a = cell[3];
+
+            let pixel = BarePixel { r, g, b, a };
+
+            row_buffer.push(pixel);
+        }
+
+        raw_output.push(row_buffer);
     }
 
-    let seam = find_low_energy_seam(&energies, width, height);
+    for y in 0..height {
+        for x in 0..orig_width {
+            energies[y as usize][x as usize] = calc_pixel_energy(x, y, &raw_output);
+        }
+    }
 
-    println!("Dimensions {:?}", seam);
-    println!("Dimensions {:?}", img.dimensions());
+    let target = 1920 / 2;
+
+    let mut width = orig_width;
+
+    loop {
+        println!("Looping, width: {}", width);
+        if width == target {
+            // end
+            // save image
+
+            let mut save_buff = image::ImageBuffer::new(width, height);
+
+            for y in 0..height {
+                for x in 0..width {
+                    let pixel = raw_output[y as usize][x as usize];
+                    save_buff.put_pixel(x, y, image::Rgba([pixel.r, pixel.g, pixel.b, pixel.a]));
+                }
+            }
+
+            match save_buff.save("carved.png") {
+                Err(why) => panic!("Failed to save: {:?}", why),
+                Ok(_) => return println!("Saved!"),
+            };
+        }
+
+        let seam = find_low_energy_seam(&energies, width, height);
+
+        let mut buffer: Vec<Vec<BarePixel>> = vec![];
+
+        for (s_x, s_y) in &seam {
+            let mut row_buffer: Vec<BarePixel> = vec![];
+
+            match raw_output.iter().nth(*s_y as usize) {
+                None => continue,
+                Some(row) => {
+                    let mut index = 0;
+                    for cell in row.iter() {
+                        if index != *s_x {
+                            row_buffer.push(*cell);
+                        }
+
+                        index += 1;
+                    }
+                }
+            }
+
+            buffer.push(row_buffer);
+        }
+
+        for (y, row) in buffer.iter().enumerate() {
+            for x in 0..row.len() {
+                let e_x = u32::try_from(x).unwrap();
+                let e_y = u32::try_from(y).unwrap();
+
+                energies[y][x] = calc_pixel_energy(e_x, e_y, &buffer);
+            }
+        }
+
+        raw_output = buffer;
+
+        width -= 1;
+    }
 }
