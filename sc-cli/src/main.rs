@@ -12,12 +12,7 @@ fn to_u32(n: usize) -> u32 {
     }
 }
 
-fn resize(
-    width: usize,
-    height: usize,
-    data: &Vec<Vec<BarePixel>>,
-    target: usize,
-) -> Vec<Vec<BarePixel>> {
+fn resize(width: usize, height: usize, data: &Vec<Vec<BarePixel>>) -> Vec<Vec<BarePixel>> {
     let mut energies = vec![vec![625; width]; height];
 
     for y in 0..height {
@@ -56,10 +51,7 @@ fn resize(
         }
     }
 
-    if target == width - 1 {
-        return buffer;
-    }
-    return resize(width - 1, height, &buffer, target);
+    return buffer;
 }
 
 fn main() {
@@ -94,7 +86,11 @@ fn main() {
         raw_output.push(row_buffer);
     }
 
-    let buffer = resize(width, height, &raw_output, target);
+    let mut buffer = raw_output;
+
+    for d in 0..(width - target) {
+        buffer = resize(width - d, height, &buffer);
+    }
 
     let mut save_buff = image::ImageBuffer::new(to_u32(target), to_u32(height));
 
