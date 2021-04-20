@@ -10,7 +10,7 @@ Initially this project has a dependency on [`image`](https://github.com/image-rs
 
 Dimensions: 1920x1080
 
-<img src="landscape.png" alt="Original Image" width="1920" height="1080"/>
+<img src="landscape.png" alt="Original Image" />
 
 Credit: [SentryTV](https://www.reddit.com/user/SentryTV/)
 
@@ -20,4 +20,4 @@ Dimensions: 1280x1080
 
 - 66.66% of original width.
 
-<img src="carved.png" alt="Original Image" width="1280" height="1080"/>
+<img src="carved.png" alt="Original Image" />
