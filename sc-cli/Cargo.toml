@@ -1,0 +1,11 @@
+[package]
+name = "sc-cli"
+version = "0.1.0"
+authors = ["Joseph Chamochumbi <sephxd1234@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+image= "0.23.14"
+seam-carving= {path = "../seam-carving"}
