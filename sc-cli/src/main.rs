@@ -56,13 +56,10 @@ fn resize(
         }
     }
 
-    if width == target {
+    if target == width - 1 {
         return buffer;
-    } else if target < width {
-        return resize(width - 1, height, &buffer, target);
-    } else {
-        return resize(width + 1, height, &buffer, target);
     }
+    return resize(width - 1, height, &buffer, target);
 }
 
 fn main() {
@@ -102,7 +99,7 @@ fn main() {
     let mut save_buff = image::ImageBuffer::new(to_u32(target), to_u32(height));
 
     for y in 0..height {
-        for x in 0..width {
+        for x in 0..target {
             let pixel = buffer[y][x];
             let rgba8 = pixel.extract();
 
@@ -112,6 +109,6 @@ fn main() {
 
     match save_buff.save("./sc-cli/carved2.png") {
         Err(why) => panic!("Failed to save: {:?}", why),
-        Ok(_) => return println!("Saved!"),
+        Ok(_) => println!("Saved!"),
     };
 }
