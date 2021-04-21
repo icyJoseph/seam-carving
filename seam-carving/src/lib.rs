@@ -25,7 +25,7 @@ impl BarePixel {
     }
 
     pub fn extract(self: Self) -> [u8; 4] {
-        [self.r, self.g, self.g, self.a]
+        [self.r, self.g, self.b, self.a]
     }
 }
 
@@ -151,10 +151,38 @@ pub fn find_low_energy_seam(
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     #[test]
-//     fn it_works() {
-//         assert_eq!(2 + 2, 4);
-//     }
-// }
+pub fn resize_once(width: usize, height: usize, data: &Vec<Vec<BarePixel>>) -> Vec<Vec<BarePixel>> {
+    let mut energies = vec![vec![625; width]; height];
+
+    for y in 0..height {
+        for x in 0..width {
+            energies[y][x] = calc_pixel_energy(x, y, &data);
+        }
+    }
+
+    let seam = find_low_energy_seam(&energies, width, height);
+
+    let mut buffer: Vec<Vec<BarePixel>> = vec![];
+
+    for (s_x, s_y) in &seam {
+        let mut row_buffer: Vec<BarePixel> = vec![];
+
+        match data.iter().nth(*s_y as usize) {
+            None => continue,
+            Some(row) => {
+                let mut index = 0;
+                for cell in row.iter() {
+                    if index != *s_x {
+                        row_buffer.push(*cell);
+                    }
+
+                    index += 1;
+                }
+            }
+        }
+
+        buffer.push(row_buffer);
+    }
+
+    buffer
+}
